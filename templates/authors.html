@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block title %}Authors Management{% endblock %}
+{% block page_title %}Authors Management{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="actions-header">
+        <form method="GET" action="{{ url_for('authors.index') }}" class="filters-form">
+            <div class="search-box">
+                <i data-lucide="search"></i>
+                <input 
+                    type="text" 
+                    name="q" 
+                    value="{{ search_query }}" 
+                    placeholder="Search author name or country..."
+                >
+            </div>
+            {% if search_query %}
+            <a href="{{ url_for('authors.index') }}" class="btn btn-outline">Clear</a>
+            {% endif %}
+        </form>
+
+        <button class="btn btn-primary" onclick="openModal('addAuthorModal')">
+            <i data-lucide="plus"></i>
+            <span>Add Author</span>
+        </button>
+    </div>
+
+    <div class="card mt-3">
+        <div class="card-body p-0">
+            {% if authors and authors|length > 0 %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Author Name</th>
+                            <th>Country</th>
+                            <th>Cataloged Books</th>
+                            <th>Associated Titles</th>
+                            <th class="text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in authors %}
+                        <tr>
+                            <td class="font-semibold text-primary-dark">
+                                {{ a.Name }}
+                            </td>
+                            <td>
+                                <span class="badge badge-secondary">{{ a.Country or 'Unspecified' }}</span>
+                            </td>
+                            <td>
+                                <strong>{{ a.Book_Count }}</strong> title(s)
+                            </td>
+                            <td class="text-slate-600 small max-w-md">
+                                {{ a.Books_List }}
+                            </td>
+                            <td class="text-right table-actions">
+                                <button 
+                                    class="btn-icon text-primary" 
+                                    title="Edit Author"
+                                    onclick='openEditAuthorModal({{ a|tojson }})'
+                                >
+                                    <i data-lucide="pencil"></i>
+                                </button>
+                                <form method="POST" action="{{ url_for('authors.delete', author_id=a.Author_ID) }}" style="display:inline;">
+                                    <button 
+                                        type="button" 
+                                        class="btn-icon text-danger" 
+                                        title="Delete Author"
+                                        onclick="showConfirmDialog({
+                                            title: 'Delete Author',
+                                            message: 'Are you sure you want to remove this author? If books are linked to this author, deletion will be blocked by foreign key constraints.',
+                                            details: '<strong>Author:</strong> {{ a.Name|e }}<br><strong>Linked Titles:</strong> {{ a.Book_Count }}',
+                                            confirmText: 'Delete Author',
+                                            confirmClass: 'btn-danger',
+                                            icon: 'trash-2',
+                                            iconType: 'danger',
+                                            form: this.closest('form')
+                                        })"
+                                    >
+                                        <i data-lucide="trash-2"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state p-5">
+                <i data-lucide="user-x" class="empty-icon text-muted"></i>
+                <h3>No Authors Found</h3>
+                <p class="text-muted">Start by adding your first author.</p>
+                <button class="btn btn-primary mt-3" onclick="openModal('addAuthorModal')">Add Author</button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block modals %}
+<!-- Add Author Modal -->
+<div id="addAuthorModal" class="modal-backdrop" style="display:none;">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h3>Add New Author</h3>
+            <button class="modal-close" onclick="closeModal('addAuthorModal')">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('authors.add') }}">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Author Full Name *</label>
+                    <input type="text" name="name" required class="form-control" placeholder="e.g. Donald E. Knuth">
+                </div>
+                <div class="form-group">
+                    <label>Country</label>
+                    <input type="text" name="country" class="form-control" placeholder="e.g. United States">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeModal('addAuthorModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Author</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Author Modal -->
+<div id="editAuthorModal" class="modal-backdrop" style="display:none;">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h3>Edit Author</h3>
+            <button class="modal-close" onclick="closeModal('editAuthorModal')">&times;</button>
+        </div>
+        <form method="POST" id="editAuthorForm" action="">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Author Full Name *</label>
+                    <input type="text" name="name" id="edit_author_name" required class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Country</label>
+                    <input type="text" name="country" id="edit_author_country" class="form-control">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeModal('editAuthorModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Update Author</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function openEditAuthorModal(author) {
+        document.getElementById('editAuthorForm').action = '/authors/edit/' + author.Author_ID;
+        document.getElementById('edit_author_name').value = author.Name;
+        document.getElementById('edit_author_country').value = author.Country || '';
+        openModal('editAuthorModal');
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}Categories Management{% endblock %}
+{% block page_title %}Book Categories Management{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="actions-header">
+        <div>
+            <p class="text-muted">Organize books into genres and academic subject classifications.</p>
+        </div>
+
+        <button class="btn btn-primary" onclick="openModal('addCategoryModal')">
+            <i data-lucide="plus"></i>
+            <span>Add Category</span>
+        </button>
+    </div>
+
+    <div class="card mt-3">
+        <div class="card-body p-0">
+            {% if categories and categories|length > 0 %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Category ID</th>
+                            <th>Category / Genre Name</th>
+                            <th>Cataloged Titles</th>
+                            <th>Total Physical Copies</th>
+                            <th class="text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in categories %}
+                        <tr>
+                            <td><code>#{{ c.Category_ID }}</code></td>
+                            <td class="font-semibold text-primary-dark">
+                                <span class="badge badge-info text-base">{{ c.Category_Name }}</span>
+                            </td>
+                            <td>
+                                <strong>{{ c.Book_Count }}</strong> title(s)
+                            </td>
+                            <td>
+                                {{ c.Total_Physical_Copies }} copies
+                            </td>
+                            <td class="text-right table-actions">
+                                <button 
+                                    class="btn-icon text-primary" 
+                                    title="Edit Category"
+                                    onclick='openEditCategoryModal({{ c|tojson }})'
+                                >
+                                    <i data-lucide="pencil"></i>
+                                </button>
+                                <form method="POST" action="{{ url_for('categories.delete', category_id=c.Category_ID) }}" style="display:inline;">
+                                    <button 
+                                        type="button" 
+                                        class="btn-icon text-danger" 
+                                        title="Delete Category"
+                                        onclick="showConfirmDialog({
+                                            title: 'Delete Category',
+                                            message: 'Are you sure you want to delete this category? If any books are classified under this category, deletion will fail due to database constraints.',
+                                            details: '<strong>Category:</strong> {{ c.Category_Name|e }}<br><strong>Classified Titles:</strong> {{ c.Book_Count }}',
+                                            confirmText: 'Delete Category',
+                                            confirmClass: 'btn-danger',
+                                            icon: 'trash-2',
+                                            iconType: 'danger',
+                                            form: this.closest('form')
+                                        })"
+                                    >
+                                        <i data-lucide="trash-2"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state p-5">
+                <i data-lucide="tag" class="empty-icon text-muted"></i>
+                <h3>No Categories Found</h3>
+                <p class="text-muted">Create book categories to begin classifying titles.</p>
+                <button class="btn btn-primary mt-3" onclick="openModal('addCategoryModal')">Add Category</button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block modals %}
+<!-- Add Category Modal -->
+<div id="addCategoryModal" class="modal-backdrop" style="display:none;">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h3>Add New Category</h3>
+            <button class="modal-close" onclick="closeModal('addCategoryModal')">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('categories.add') }}">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Category / Subject Name *</label>
+                    <input type="text" name="name" required class="form-control" placeholder="e.g. Artificial Intelligence">
+                    <small class="text-muted">Category names must be unique.</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeModal('addCategoryModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Category</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Category Modal -->
+<div id="editCategoryModal" class="modal-backdrop" style="display:none;">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h3>Edit Category</h3>
+            <button class="modal-close" onclick="closeModal('editCategoryModal')">&times;</button>
+        </div>
+        <form method="POST" id="editCategoryForm" action="">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Category / Subject Name *</label>
+                    <input type="text" name="name" id="edit_cat_name" required class="form-control">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeModal('editCategoryModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Update Category</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function openEditCategoryModal(cat) {
+        document.getElementById('editCategoryForm').action = '/categories/edit/' + cat.Category_ID;
+        document.getElementById('edit_cat_name').value = cat.Category_Name;
+        openModal('editCategoryModal');
+    }
+</script>
+{% endblock %}

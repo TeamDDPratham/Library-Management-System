@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block title %}SQL Reports & Syllabus Queries{% endblock %}
+{% block page_title %}RDBMS Analytical Reports & SQL Syllabus Coverage{% endblock %}
+
+{% block content %}
+<div class="page-container reports-view">
+    <!-- Reports Selector Grid / Dropdown -->
+    <div class="card mb-4 no-print">
+        <div class="card-header">
+            <div>
+                <h3 class="card-title">Select Analytical Report</h3>
+                <p class="card-subtitle">Demonstrates standard SQL queries, aggregations, joins, and subqueries on LibraryDB</p>
+            </div>
+            <button class="btn btn-outline" onclick="window.print()">
+                <i data-lucide="printer"></i> Print Report
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="reports-nav-pills">
+                {% for key, r in registry.items() %}
+                <a 
+                    href="{{ url_for('reports.index', report=key) }}" 
+                    class="report-pill {% if key == active_key %}active{% endif %}"
+                >
+                    <i data-lucide="file-text"></i>
+                    <span>{{ r.title }}</span>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Report Card -->
+    <div class="card printable-report">
+        <div class="card-header report-header-banner">
+            <div>
+                <span class="badge badge-primary uppercase tracking-wider mb-1">
+                    {{ active_report.syllabus_concept }}
+                </span>
+                <h2 class="report-title-main">{{ active_report.title }}</h2>
+                <p class="text-muted">{{ active_report.description }}</p>
+            </div>
+            <div class="report-meta text-right">
+                <span class="badge badge-info">Generated: {{ system_today }}</span>
+                <div class="text-sm text-slate-500 mt-1">Database: <code>LibraryDB (MySQL 8.x)</code></div>
+            </div>
+        </div>
+
+        <!-- SQL Query Viewer Accordion (Collapsible with Copy) -->
+        <div class="sql-viewer-box no-print">
+            <div class="sql-viewer-header">
+                <div class="sql-title" onclick="toggleSqlBox()" style="flex:1; cursor:pointer;">
+                    <i data-lucide="code-2" class="icon-inline"></i>
+                    <strong>Underlying SQL Query</strong>
+                    <span class="text-xs text-muted" id="sqlToggleText" style="margin-left: 10px;">(Click to collapse/expand)</span>
+                </div>
+                <button type="button" class="btn-copy-code" id="copySqlBtn" onclick="copySqlQuery()">
+                    <i data-lucide="copy" style="width:12px; height:12px;"></i>
+                    <span id="copyBtnText">Copy Query</span>
+                </button>
+            </div>
+            <pre class="sql-code-block" id="sqlCodeBlock"><code id="rawSqlCode">{{ active_report.sql.strip() }}</code></pre>
+        </div>
+
+        <div class="card-body p-0">
+            {% if error %}
+            <div class="alert alert-danger m-3">
+                <i data-lucide="alert-circle" class="icon-inline"></i>
+                <strong>SQL Execution Error:</strong> {{ error }}
+            </div>
+            {% elif data and data|length > 0 %}
+            <div class="table-responsive">
+                <table class="table report-table">
+                    <thead>
+                        <tr>
+                            {% for col in columns %}
+                            <th>{{ col.replace('_', ' ') }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in data %}
+                        <tr>
+                            {% for col in columns %}
+                            <td>
+                                {% if row[col] is none %}
+                                    <span class="text-muted italic">NULL</span>
+                                {% elif 'Price' in col or 'Fine' in col %}
+                                    {{ currency }}{{ "%.2f"|format(row[col]|float) if row[col] is number else row[col] }}
+                                {% else %}
+                                    {{ row[col] }}
+                                {% endif %}
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="report-footer-summary p-3 bg-slate-50 border-t border-slate-200">
+                <strong>Record Count:</strong> {{ data|length }} row(s) returned.
+            </div>
+            {% else %}
+            <div class="empty-state p-5">
+                <i data-lucide="database" class="empty-icon text-muted"></i>
+                <h3>No Matching Records</h3>
+                <p class="text-muted">The query returned zero rows for the current database state.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function toggleSqlBox() {
+        const box = document.getElementById('sqlCodeBlock');
+        if (box.style.display === 'none') {
+            box.style.display = 'block';
+            document.getElementById('sqlToggleText').innerText = '(Click to collapse)';
+        } else {
+            box.style.display = 'none';
+            document.getElementById('sqlToggleText').innerText = '(Click to expand)';
+        }
+    }
+
+    function copySqlQuery() {
+        const sqlEl = document.getElementById('rawSqlCode');
+        if (!sqlEl) return;
+        const sqlText = sqlEl.innerText || sqlEl.textContent;
+        navigator.clipboard.writeText(sqlText).then(() => {
+            const btnText = document.getElementById('copyBtnText');
+            if (btnText) {
+                btnText.innerText = 'Copied!';
+                setTimeout(() => {
+                    btnText.innerText = 'Copy Query';
+                }, 2000);
+            }
+        }).catch(err => {
+            console.error('Copy failed:', err);
+        });
+    }
+</script>
+{% endblock %}

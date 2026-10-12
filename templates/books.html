@@ -1,0 +1,352 @@
+{% extends "base.html" %}
+
+{% block title %}Books Catalog{% endblock %}
+{% block page_title %}Books Catalog Management{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <!-- Filter and Search Header -->
+    <div class="actions-header">
+        <form method="GET" action="{{ url_for('books.index') }}" class="filters-form">
+            <div class="search-box">
+                <i data-lucide="search"></i>
+                <input 
+                    type="text" 
+                    name="q" 
+                    value="{{ search_query }}" 
+                    placeholder="Search title, ISBN, author, publisher..."
+                >
+            </div>
+
+            <select name="category" onchange="this.form.submit()" class="form-select">
+                <option value="">All Categories</option>
+                {% for cat in categories %}
+                <option value="{{ cat.Category_ID }}" {% if category_filter == cat.Category_ID|string %}selected{% endif %}>
+                    {{ cat.Category_Name }}
+                </option>
+                {% endfor %}
+            </select>
+
+            <select name="year" onchange="this.form.submit()" class="form-select">
+                <option value="">All Years</option>
+                {% for yr in years %}
+                <option value="{{ yr }}" {% if year_filter == yr|string %}selected{% endif %}>
+                    {{ yr }}
+                </option>
+                {% endfor %}
+            </select>
+
+            <select name="availability" onchange="this.form.submit()" class="form-select">
+                <option value="">All Stock Status</option>
+                <option value="available" {% if availability_filter == 'available' %}selected{% endif %}>In Stock (>0)</option>
+                <option value="unavailable" {% if availability_filter == 'unavailable' %}selected{% endif %}>Out of Stock (=0)</option>
+            </select>
+
+            {% if search_query or category_filter or year_filter or availability_filter %}
+            <a href="{{ url_for('books.index') }}" class="btn btn-outline" title="Clear Filters">
+                <i data-lucide="x"></i> Clear
+            </a>
+            {% endif %}
+        </form>
+
+        <button class="btn btn-primary" onclick="openModal('addBookModal')">
+            <i data-lucide="plus"></i>
+            <span>Add New Book</span>
+        </button>
+    </div>
+
+    <!-- Books Table -->
+    <div class="card mt-3">
+        <div class="card-body p-0">
+            {% if books and books|length > 0 %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Book Title & Details</th>
+                            <th>Category</th>
+                            <th>Author(s)</th>
+                            <th>Publisher</th>
+                            <th>Price</th>
+                            <th>Availability</th>
+                            <th class="text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for b in books %}
+                        <tr>
+                            <td>
+                                <div class="font-semibold text-primary-dark">{{ b.Title }}</div>
+                                <div class="text-muted small">
+                                    ISBN: <code>{{ b.ISBN }}</code> &bull; Year: {{ b.Publication_Year or 'N/A' }}
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge badge-info">{{ b.Category_Name or 'Unassigned' }}</span>
+                            </td>
+                            <td class="font-medium text-slate-700">
+                                {{ b.Authors }}
+                            </td>
+                            <td class="text-slate-600">
+                                {{ b.Publisher_Name or 'N/A' }}
+                            </td>
+                            <td>
+                                <strong>{{ currency }}{{ "%.2f"|format(b.Price) }}</strong>
+                            </td>
+                            <td>
+                                <div class="stock-bar-wrapper">
+                                    <div style="display:flex; justify-content:space-between; font-size:0.75rem; font-weight:600; margin-bottom: 2px;">
+                                        <span class="{% if b.Available_Copies == 0 %}text-danger{% elif b.Available_Copies < 2 %}text-warning{% else %}text-muted{% endif %}">
+                                            {{ b.Available_Copies }} / {{ b.Total_Copies }}
+                                        </span>
+                                        <span class="badge {% if b.Available_Copies > 0 %}badge-success{% else %}badge-danger{% endif %}" style="padding:1px 6px; font-size:0.68rem;">
+                                            {% if b.Available_Copies > 0 %}In Stock{% else %}Lent Out{% endif %}
+                                        </span>
+                                    </div>
+                                    <div class="stock-bar">
+                                        {% set pct = ((b.Available_Copies / b.Total_Copies) * 100)|round if b.Total_Copies > 0 else 0 %}
+                                        <div class="stock-bar-fill {% if pct == 0 %}fill-danger{% elif pct < 35 %}fill-warning{% else %}fill-success{% endif %}" style="width: {{ pct }}%;"></div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="text-right table-actions">
+                                <button 
+                                    class="btn-icon text-primary" 
+                                    title="Edit Book"
+                                    onclick='openEditBookModal({{ b|tojson }})'
+                                >
+                                    <i data-lucide="pencil"></i>
+                                </button>
+                                <form method="POST" action="{{ url_for('books.delete', book_id=b.Book_ID) }}" style="display:inline;">
+                                    <button 
+                                        type="button" 
+                                        class="btn-icon text-danger" 
+                                        title="Delete Book"
+                                        onclick="showConfirmDialog({
+                                            title: 'Delete Book Title',
+                                            message: 'Are you sure you want to permanently remove this book from the catalog? This action will fail if active loans exist.',
+                                            details: '<strong>Title:</strong> {{ b.Title|e }}<br><strong>ISBN:</strong> {{ b.ISBN }}<br><strong>Total Copies:</strong> {{ b.Total_Copies }}',
+                                            confirmText: 'Delete Book',
+                                            confirmClass: 'btn-danger',
+                                            icon: 'trash-2',
+                                            iconType: 'danger',
+                                            form: this.closest('form')
+                                        })"
+                                    >
+                                        <i data-lucide="trash-2"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state p-5">
+                <i data-lucide="book-x" class="empty-icon text-muted"></i>
+                <h3>No Books Found</h3>
+                <p class="text-muted">No books match your search or filter criteria.</p>
+                <button class="btn btn-primary mt-3" onclick="openModal('addBookModal')">Add First Book</button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block modals %}
+<!-- Add Book Modal -->
+<div id="addBookModal" class="modal-backdrop" style="display:none;">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-header">
+            <h3>Add New Book to Catalog</h3>
+            <button class="modal-close" onclick="closeModal('addBookModal')">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('books.add') }}">
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group col-md-8">
+                        <label>Book Title *</label>
+                        <input type="text" name="title" required class="form-control" placeholder="e.g. Database System Concepts">
+                    </div>
+                    <div class="form-group col-md-4">
+                        <label>ISBN *</label>
+                        <input type="text" name="isbn" required class="form-control" placeholder="e.g. 978-0078022159">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label>Category</label>
+                        <select name="category_id" class="form-control">
+                            <option value="">-- Select Category --</option>
+                            {% for c in categories %}
+                            <option value="{{ c.Category_ID }}">{{ c.Category_Name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label>Publisher</label>
+                        <select name="publisher_id" class="form-control">
+                            <option value="">-- Select Publisher --</option>
+                            {% for p in publishers %}
+                            <option value="{{ p.Publisher_ID }}">{{ p.Name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group col-md-3">
+                        <label>Price ({{ currency }}) *</label>
+                        <input type="number" step="0.01" min="0" name="price" required class="form-control" value="499.00">
+                    </div>
+                    <div class="form-group col-md-3">
+                        <label>Total Copies *</label>
+                        <input type="number" min="1" name="total_copies" id="add_total" required class="form-control" value="5" oninput="document.getElementById('add_avail').value = this.value">
+                    </div>
+                    <div class="form-group col-md-3">
+                        <label>Available Copies *</label>
+                        <input type="number" min="0" name="available_copies" id="add_avail" required class="form-control" value="5">
+                    </div>
+                    <div class="form-group col-md-3">
+                        <label>Publication Year</label>
+                        <input type="number" min="1900" max="2099" name="publication_year" class="form-control" value="2023">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Select Author(s) (Many-to-Many Relationship)</label>
+                    <input type="text" id="add_author_search" class="search-input-sm" placeholder="Filter authors by name...">
+                    <div class="authors-selection-box" id="add_authors_container">
+                        {% for a in authors %}
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="author_ids" value="{{ a.Author_ID }}">
+                            <span>{{ a.Name }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    <small class="text-muted">You can select multiple co-authors for this book.</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeModal('addBookModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Book to Database</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Book Modal -->
+<div id="editBookModal" class="modal-backdrop" style="display:none;">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-header">
+            <h3>Edit Book Details</h3>
+            <button class="modal-close" onclick="closeModal('editBookModal')">&times;</button>
+        </div>
+        <form method="POST" id="editBookForm" action="">
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group col-md-8">
+                        <label>Book Title *</label>
+                        <input type="text" name="title" id="edit_title" required class="form-control">
+                    </div>
+                    <div class="form-group col-md-4">
+                        <label>ISBN *</label>
+                        <input type="text" name="isbn" id="edit_isbn" required class="form-control">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label>Category</label>
+                        <select name="category_id" id="edit_category" class="form-control">
+                            <option value="">-- None --</option>
+                            {% for c in categories %}
+                            <option value="{{ c.Category_ID }}">{{ c.Category_Name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label>Publisher</label>
+                        <select name="publisher_id" id="edit_publisher" class="form-control">
+                            <option value="">-- None --</option>
+                            {% for p in publishers %}
+                            <option value="{{ p.Publisher_ID }}">{{ p.Name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group col-md-3">
+                        <label>Price ({{ currency }}) *</label>
+                        <input type="number" step="0.01" min="0" name="price" id="edit_price" required class="form-control">
+                    </div>
+                    <div class="form-group col-md-3">
+                        <label>Total Copies *</label>
+                        <input type="number" min="0" name="total_copies" id="edit_total" required class="form-control">
+                    </div>
+                    <div class="form-group col-md-3">
+                        <label>Available Copies *</label>
+                        <input type="number" min="0" name="available_copies" id="edit_avail" required class="form-control">
+                    </div>
+                    <div class="form-group col-md-3">
+                        <label>Publication Year</label>
+                        <input type="number" min="1900" max="2099" name="publication_year" id="edit_year" class="form-control">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Select Author(s)</label>
+                    <input type="text" id="edit_author_search" class="search-input-sm" placeholder="Filter authors by name...">
+                    <div class="authors-selection-box" id="edit_authors_container">
+                        {% for a in authors %}
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="author_ids" value="{{ a.Author_ID }}" id="edit_auth_{{ a.Author_ID }}">
+                            <span>{{ a.Name }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeModal('editBookModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Update Book</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function openEditBookModal(book) {
+        document.getElementById('editBookForm').action = '/books/edit/' + book.Book_ID;
+        document.getElementById('edit_title').value = book.Title;
+        document.getElementById('edit_isbn').value = book.ISBN;
+        document.getElementById('edit_category').value = book.Category_ID || '';
+        document.getElementById('edit_publisher').value = book.Publisher_ID || '';
+        document.getElementById('edit_price').value = book.Price;
+        document.getElementById('edit_total').value = book.Total_Copies;
+        document.getElementById('edit_avail').value = book.Available_Copies;
+        document.getElementById('edit_year').value = book.Publication_Year || '';
+
+        // Uncheck all author checkboxes first
+        const allAuthorCheckboxes = document.querySelectorAll('#edit_authors_container input[type="checkbox"]');
+        allAuthorCheckboxes.forEach(cb => cb.checked = false);
+
+        // Check associated author IDs
+        if (book.Author_IDs) {
+            const authorIds = String(book.Author_IDs).split(',');
+            authorIds.forEach(id => {
+                const cb = document.getElementById('edit_auth_' + id.trim());
+                if (cb) cb.checked = true;
+            });
+        }
+
+        openModal('editBookModal');
+    }
+</script>
+{% endblock %}

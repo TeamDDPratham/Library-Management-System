@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block title %}Members Directory{% endblock %}
+{% block page_title %}Library Members Directory{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="actions-header">
+        <form method="GET" action="{{ url_for('members.index') }}" class="filters-form">
+            <div class="search-box">
+                <i data-lucide="search"></i>
+                <input 
+                    type="text" 
+                    name="q" 
+                    value="{{ search_query }}" 
+                    placeholder="Search member by name, email, or phone..."
+                >
+            </div>
+
+            <select name="status" onchange="this.form.submit()" class="form-select">
+                <option value="">All Statuses</option>
+                <option value="Active" {% if status_filter == 'Active' %}selected{% endif %}>Active Members</option>
+                <option value="Inactive" {% if status_filter == 'Inactive' %}selected{% endif %}>Inactive Members</option>
+            </select>
+
+            {% if search_query or status_filter %}
+            <a href="{{ url_for('members.index') }}" class="btn btn-outline">Clear</a>
+            {% endif %}
+        </form>
+
+        <button class="btn btn-primary" onclick="openModal('addMemberModal')">
+            <i data-lucide="user-plus"></i>
+            <span>Register New Member</span>
+        </button>
+    </div>
+
+    <div class="card mt-3">
+        <div class="card-body p-0">
+            {% if members and members|length > 0 %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Member Name</th>
+                            <th>Contact Information</th>
+                            <th>Join Date</th>
+                            <th>Membership Status</th>
+                            <th>Borrowing Activity</th>
+                            <th class="text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for m in members %}
+                        <tr>
+                            <td>
+                                <div class="member-cell">
+                                    <div class="member-avatar-initials">
+                                        {{ m.Name[:2]|upper }}
+                                    </div>
+                                    <div class="member-info">
+                                        <span class="member-name">{{ m.Name }}</span>
+                                        <span class="member-sub">ID: #{{ m.Member_ID }}</span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div><i data-lucide="mail" class="icon-inline text-muted"></i> {{ m.Email }}</div>
+                                {% if m.Phone %}
+                                <div class="text-muted small"><i data-lucide="phone" class="icon-inline"></i> {{ m.Phone }}</div>
+                                {% endif %}
+                            </td>
+                            <td>{{ m.Join_Date }}</td>
+                            <td>
+                                {% if m.Status == 'Active' %}
+                                <span class="badge badge-success">Active Patron</span>
+                                {% else %}
+                                <span class="badge badge-danger">Inactive / Suspended</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div>
+                                    <span class="badge badge-info">{{ m.Active_Loans or 0 }} Active</span>
+                                    {% if m.Overdue_Loans and m.Overdue_Loans > 0 %}
+                                    <span class="badge badge-danger">{{ m.Overdue_Loans }} Overdue</span>
+                                    {% endif %}
+                                </div>
+                                <div class="text-muted small mt-1">
+                                    {{ m.Total_Loans or 0 }} lifetime loan(s) &bull; {{ currency }}{{ "%.2f"|format(m.Total_Fines_Recorded) }} fines
+                                </div>
+                            </td>
+                            <td class="text-right table-actions">
+                                <a 
+                                    href="{{ url_for('members.history', member_id=m.Member_ID) }}" 
+                                    class="btn-icon text-indigo" 
+                                    title="View Borrowing History"
+                                >
+                                    <i data-lucide="history"></i>
+                                </a>
+                                <button 
+                                    class="btn-icon text-primary" 
+                                    title="Edit Member"
+                                    onclick='openEditMemberModal({{ m|tojson }})'
+                                >
+                                    <i data-lucide="pencil"></i>
+                                </button>
+                                <form method="POST" action="{{ url_for('members.toggle_status', member_id=m.Member_ID) }}" style="display:inline;">
+                                    <button 
+                                        type="button" 
+                                        class="btn-icon {% if m.Status == 'Active' %}text-warning{% else %}text-success{% endif %}" 
+                                        title="{% if m.Status == 'Active' %}Deactivate Member{% else %}Activate Member{% endif %}"
+                                        onclick="showConfirmDialog({
+                                            title: '{% if m.Status == 'Active' %}Deactivate Member{% else %}Activate Member{% endif %}',
+                                            message: 'Are you sure you want to change this member\'s account status to {% if m.Status == 'Active' %}Inactive{% else %}Active{% endif %}?',
+                                            details: '<strong>Member:</strong> {{ m.Name|e }}<br><strong>Current Status:</strong> {{ m.Status }}<br><strong>Active Loans:</strong> {{ m.Active_Loans or 0 }}',
+                                            confirmText: '{% if m.Status == 'Active' %}Deactivate{% else %}Activate{% endif %}',
+                                            confirmClass: '{% if m.Status == 'Active' %}btn-danger{% else %}btn-success{% endif %}',
+                                            icon: '{% if m.Status == 'Active' %}user-x{% else %}user-check{% endif %}',
+                                            iconType: '{% if m.Status == 'Active' %}warning{% else %}primary{% endif %}',
+                                            form: this.closest('form')
+                                        })"
+                                    >
+                                        <i data-lucide="{% if m.Status == 'Active' %}user-x{% else %}user-check{% endif %}"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state p-5">
+                <i data-lucide="users" class="empty-icon text-muted"></i>
+                <h3>No Members Found</h3>
+                <p class="text-muted">Register students or faculty as library patrons.</p>
+                <button class="btn btn-primary mt-3" onclick="openModal('addMemberModal')">Register Member</button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block modals %}
+<!-- Add Member Modal -->
+<div id="addMemberModal" class="modal-backdrop" style="display:none;">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h3>Register Library Member</h3>
+            <button class="modal-close" onclick="closeModal('addMemberModal')">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('members.add') }}">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Full Name *</label>
+                    <input type="text" name="name" required class="form-control" placeholder="e.g. Alice Johnson">
+                </div>
+                <div class="form-group">
+                    <label>Email Address *</label>
+                    <input type="email" name="email" required class="form-control" placeholder="alice@univ.edu">
+                </div>
+                <div class="form-group">
+                    <label>Phone Number</label>
+                    <input type="text" name="phone" class="form-control" placeholder="e.g. 555-0101">
+                </div>
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label>Join Date</label>
+                        <input type="date" name="join_date" value="{{ today }}" class="form-control">
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label>Status</label>
+                        <select name="status" class="form-control">
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeModal('addMemberModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Register Member</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Member Modal -->
+<div id="editMemberModal" class="modal-backdrop" style="display:none;">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h3>Edit Member Information</h3>
+            <button class="modal-close" onclick="closeModal('editMemberModal')">&times;</button>
+        </div>
+        <form method="POST" id="editMemberForm" action="">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Full Name *</label>
+                    <input type="text" name="name" id="edit_member_name" required class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Email Address *</label>
+                    <input type="email" name="email" id="edit_member_email" required class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Phone Number</label>
+                    <input type="text" name="phone" id="edit_member_phone" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select name="status" id="edit_member_status" class="form-control">
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeModal('editMemberModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Update Member</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function openEditMemberModal(m) {
+        document.getElementById('editMemberForm').action = '/members/edit/' + m.Member_ID;
+        document.getElementById('edit_member_name').value = m.Name;
+        document.getElementById('edit_member_email').value = m.Email;
+        document.getElementById('edit_member_phone').value = m.Phone || '';
+        document.getElementById('edit_member_status').value = m.Status;
+        openModal('editMemberModal');
+    }
+</script>
+{% endblock %}

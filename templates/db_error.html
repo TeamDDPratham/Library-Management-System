@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Offline - Library Management System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="db-error-body">
+    <div class="db-error-card">
+        <div class="db-error-icon">
+            <i data-lucide="database-zap"></i>
+        </div>
+        <h1 class="db-error-title">MySQL Database Unreachable</h1>
+        <p class="db-error-subtitle">
+            The Library Management System strictly operates on MySQL 8.x and will not silently substitute mock or fallback databases.
+        </p>
+
+        <div class="alert alert-danger text-left my-4">
+            <strong>System Error:</strong>
+            <pre class="mt-2 text-xs overflow-x-auto">{{ error_message }}</pre>
+        </div>
+
+        <div class="db-config-details">
+            <h3>Current Connection Settings (.env / config.py):</h3>
+            <div class="config-grid">
+                <div><strong>Host:</strong> <code>{{ config.DB_HOST }}</code></div>
+                <div><strong>Port:</strong> <code>{{ config.DB_PORT }}</code></div>
+                <div><strong>User:</strong> <code>{{ config.DB_USER }}</code></div>
+                <div><strong>Database:</strong> <code>{{ config.DB_NAME }}</code></div>
+            </div>
+        </div>
+
+        <div class="db-instructions-box">
+            <h3>How to Start & Initialize MySQL:</h3>
+            <ol>
+                <li>
+                    <strong>Start MySQL Server:</strong>
+                    <p class="text-xs text-muted">Via Windows Services: Press <code>Win + R</code> &rarr; <code>services.msc</code> &rarr; Start <strong>MySQL80</strong>.</p>
+                    <p class="text-xs text-muted">Or via Docker:</p>
+                    <pre class="cmd-code">docker run -d -p 3306:3306 --name library_mysql -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=LibraryDB mysql:8.0</pre>
+                </li>
+                <li>
+                    <strong>Import Schema & Sample Data:</strong>
+                    <pre class="cmd-code">mysql -u root -p < database/schema.sql
+mysql -u root -p < database/sample_data.sql</pre>
+                    <p class="text-xs text-muted">Or open MySQL Workbench 8.0, connect to Local instance, and execute <code>database/schema.sql</code> and <code>database/sample_data.sql</code>.</p>
+                </li>
+            </ol>
+        </div>
+
+        <div class="mt-4">
+            <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg">
+                <i data-lucide="refresh-cw"></i> Retry Database Connection
+            </a>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>

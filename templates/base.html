@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Dashboard{% endblock %} - Library Management System</title>
+    <!-- Modern Sans-Serif Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Application Stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="app-layout">
+        {% if is_authenticated %}
+        <!-- Mobile Sidebar Overlay Backdrop -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar" id="appSidebar">
+            <div class="sidebar-header">
+                <div class="brand-logo">
+                    <i data-lucide="book-open-check" class="brand-icon"></i>
+                    <div>
+                        <h2>LibraryDB</h2>
+                        <span>Management System</span>
+                    </div>
+                </div>
+                <button class="sidebar-close-btn" id="sidebarCloseBtn" aria-label="Close Sidebar">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="nav-section-label">CORE</div>
+                <a href="{{ url_for('dashboard') }}" class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+                    <i data-lucide="layout-dashboard"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{{ url_for('loans.index') }}" class="nav-item {% if 'loans' in request.endpoint %}active{% endif %}">
+                    <i data-lucide="arrow-left-right"></i>
+                    <span>Issue & Return</span>
+                    {% if overdue_badge_count and overdue_badge_count > 0 %}
+                    <span class="sidebar-badge badge-danger" title="{{ overdue_badge_count }} Overdue Loans">{{ overdue_badge_count }}</span>
+                    {% endif %}
+                </a>
+                <a href="{{ url_for('books.index') }}" class="nav-item {% if 'books' in request.endpoint %}active{% endif %}">
+                    <i data-lucide="book"></i>
+                    <span>Books Catalog</span>
+                </a>
+                <a href="{{ url_for('members.index') }}" class="nav-item {% if 'members' in request.endpoint %}active{% endif %}">
+                    <i data-lucide="users"></i>
+                    <span>Members</span>
+                </a>
+
+                <div class="nav-section-label">CATALOGING</div>
+                <a href="{{ url_for('authors.index') }}" class="nav-item {% if 'authors' in request.endpoint %}active{% endif %}">
+                    <i data-lucide="pen-tool"></i>
+                    <span>Authors</span>
+                </a>
+                <a href="{{ url_for('publishers.index') }}" class="nav-item {% if 'publishers' in request.endpoint %}active{% endif %}">
+                    <i data-lucide="building"></i>
+                    <span>Publishers</span>
+                </a>
+                <a href="{{ url_for('categories.index') }}" class="nav-item {% if 'categories' in request.endpoint %}active{% endif %}">
+                    <i data-lucide="tags"></i>
+                    <span>Categories</span>
+                </a>
+
+                <div class="nav-section-label">ANALYTICS & VIVA</div>
+                <a href="{{ url_for('reports.index') }}" class="nav-item {% if 'reports' in request.endpoint %}active{% endif %}">
+                    <i data-lucide="file-spreadsheet"></i>
+                    <span>SQL Reports</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-profile">
+                    <div class="user-avatar">
+                        <i data-lucide="shield-check"></i>
+                    </div>
+                    <div class="user-details">
+                        <span class="user-name">{{ current_user_name or 'Librarian' }}</span>
+                        <span class="user-role">Librarian Staff</span>
+                    </div>
+                </div>
+                <a href="{{ url_for('auth.logout') }}" class="logout-link" title="Sign Out">
+                    <i data-lucide="log-out"></i>
+                </a>
+            </div>
+        </aside>
+        {% endif %}
+
+        <!-- Main Workspace Area -->
+        <div class="main-wrapper {% if not is_authenticated %}auth-wrapper{% endif %}">
+            {% if is_authenticated %}
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="mobile-menu-btn" id="mobileMenuBtn">
+                        <i data-lucide="menu"></i>
+                    </button>
+                    <h1 class="page-title">{% block page_title %}Overview{% endblock %}</h1>
+                </div>
+                <div class="topbar-right">
+                    <div class="system-badge">
+                        <i data-lucide="database"></i>
+                        <span>MySQL 8.x Active</span>
+                    </div>
+                    <div class="date-badge">
+                        <i data-lucide="calendar"></i>
+                        <span>{{ system_today }}</span>
+                    </div>
+                </div>
+            </header>
+            {% endif %}
+
+            <main class="content-container">
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        <div class="flash-messages">
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }}">
+                                    <div class="alert-content">
+                                        <i data-lucide="{% if category == 'success' %}check-circle-2{% elif category == 'danger' %}alert-circle{% elif category == 'warning' %}alert-triangle{% else %}info{% endif %}"></i>
+                                        <span>{{ message }}</span>
+                                    </div>
+                                    <button class="alert-close" onclick="this.parentElement.remove()">&times;</button>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endwith %}
+
+                {% if not_found %}
+                    <div class="error-container">
+                        <h2>404 - Page Not Found</h2>
+                        <p>The requested route does not exist.</p>
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-primary">Return to Dashboard</a>
+                    </div>
+                {% elif server_error %}
+                    <div class="error-container">
+                        <h2>500 - Internal Server Error</h2>
+                        <p>An unexpected condition occurred on the server.</p>
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-primary">Return to Dashboard</a>
+                    </div>
+                {% else %}
+                    {% block content %}{% endblock %}
+                {% endif %}
+            </main>
+        </div>
+    </div>
+
+    <!-- Global Confirmation Dialog Modal -->
+    <div id="globalConfirmModal" class="modal-backdrop confirm-modal-backdrop" style="display:none;" role="dialog" aria-modal="true">
+        <div class="modal-dialog modal-sm confirm-dialog">
+            <div class="confirm-icon-wrapper" id="confirmModalIconWrapper">
+                <i data-lucide="alert-triangle" id="confirmModalIcon"></i>
+            </div>
+            <h3 id="confirmModalTitle" class="confirm-title">Are you sure?</h3>
+            <p id="confirmModalMessage" class="confirm-message">This action cannot be undone.</p>
+            <div id="confirmModalDetails" class="confirm-details-box" style="display:none;"></div>
+            <div class="confirm-actions">
+                <button type="button" class="btn btn-outline" id="confirmModalCancelBtn" onclick="closeConfirmModal()">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmModalSubmitBtn">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals Container -->
+    {% block modals %}{% endblock %}
+
+    <!-- Application Script -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+    </script>
+</body>
+</html>

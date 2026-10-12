@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Librarian Login{% endblock %}
+
+{% block content %}
+<div class="login-wrapper">
+    <div class="login-card">
+        <div class="login-header">
+            <div class="brand-avatar">
+                <i data-lucide="book-open-check"></i>
+            </div>
+            <h2>Librarian Sign In</h2>
+            <p>Enter your credentials to access the Library Management System</p>
+        </div>
+
+        <form method="POST" action="{{ url_for('auth.login') }}" class="login-form">
+            <div class="form-group">
+                <label for="email">Staff Email Address</label>
+                <div class="input-with-icon">
+                    <i data-lucide="mail"></i>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        name="email" 
+                        value="{{ email or '' }}" 
+                        placeholder="librarian@library.com" 
+                        required 
+                        autocomplete="email"
+                        autofocus
+                    >
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <div class="input-with-icon">
+                    <i data-lucide="lock"></i>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        placeholder="••••••••" 
+                        required 
+                        autocomplete="current-password"
+                    >
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block btn-lg">
+                <i data-lucide="log-in"></i>
+                <span>Sign In to System</span>
+            </button>
+        </form>
+
+        <div class="demo-credentials-card">
+            <div class="demo-badge">
+                <i data-lucide="key-round"></i>
+                <span>Demo Credentials</span>
+            </div>
+            <div class="demo-creds-details">
+                <div><strong>Email:</strong> <code>admin@library.com</code></div>
+                <div><strong>Password:</strong> <code>Admin@123</code></div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline mt-2" onclick="fillDemoCreds()">
+                Auto-fill Demo Credentials
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function fillDemoCreds() {
+        document.getElementById('email').value = 'admin@library.com';
+        document.getElementById('password').value = 'Admin@123';
+    }
+</script>
+{% endblock %}

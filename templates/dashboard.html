@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Overview{% endblock %}
+{% block page_title %}Dashboard Overview{% endblock %}
+
+{% block content %}
+<div class="dashboard-content">
+    <!-- Top Statistics Grid -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon icon-blue">
+                <i data-lucide="book"></i>
+            </div>
+            <div class="stat-info">
+                <span class="stat-label">Book Titles</span>
+                <h3 class="stat-value">{{ stats.total_titles or 0 }}</h3>
+                <span class="stat-sub">Across all categories</span>
+                <span class="stat-chip stat-chip-primary"><i data-lucide="layers" class="icon-inline"></i> Catalog</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon icon-indigo">
+                <i data-lucide="copy"></i>
+            </div>
+            <div class="stat-info">
+                <span class="stat-label">Physical Copies</span>
+                <h3 class="stat-value">{{ stats.total_physical_copies or 0 }}</h3>
+                <span class="stat-sub">Total inventory copies</span>
+                <span class="stat-chip stat-chip-neutral"><i data-lucide="archive" class="icon-inline"></i> Total Stock</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon icon-emerald">
+                <i data-lucide="check-circle"></i>
+            </div>
+            <div class="stat-info">
+                <span class="stat-label">Available Copies</span>
+                <h3 class="stat-value">{{ stats.total_available_copies or 0 }}</h3>
+                <span class="stat-sub">Ready to be issued</span>
+                <span class="stat-chip stat-chip-success"><i data-lucide="check" class="icon-inline"></i> On Shelf</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon icon-amber">
+                <i data-lucide="arrow-left-right"></i>
+            </div>
+            <div class="stat-info">
+                <span class="stat-label">Active Loans</span>
+                <h3 class="stat-value">{{ stats.active_loans or 0 }}</h3>
+                <span class="stat-sub">Currently borrowed</span>
+                <span class="stat-chip stat-chip-warning"><i data-lucide="refresh-cw" class="icon-inline"></i> Circulating</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon icon-rose">
+                <i data-lucide="clock-alert"></i>
+            </div>
+            <div class="stat-info">
+                <span class="stat-label">Overdue Loans</span>
+                <h3 class="stat-value">{{ stats.overdue_loans or 0 }}</h3>
+                <span class="stat-sub text-danger">Past scheduled due date</span>
+                <span class="stat-chip stat-chip-danger"><i data-lucide="alert-octagon" class="icon-inline"></i> Action Required</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon icon-cyan">
+                <i data-lucide="users"></i>
+            </div>
+            <div class="stat-info">
+                <span class="stat-label">Library Members</span>
+                <h3 class="stat-value">{{ stats.total_members or 0 }}</h3>
+                <span class="stat-sub">{{ stats.active_members or 0 }} active patrons</span>
+                <span class="stat-chip stat-chip-primary"><i data-lucide="user-check" class="icon-inline"></i> Registered</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon icon-purple">
+                <i data-lucide="coins"></i>
+            </div>
+            <div class="stat-info">
+                <span class="stat-label">Collected Fines</span>
+                <h3 class="stat-value">{{ currency }}{{ "%.2f"|format(stats.total_fines_collected or 0.0) }}</h3>
+                <span class="stat-sub">Total recorded penalties</span>
+                <span class="stat-chip stat-chip-success"><i data-lucide="badge-check" class="icon-inline"></i> Realized</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon icon-orange">
+                <i data-lucide="badge-dollar-sign"></i>
+            </div>
+            <div class="stat-info">
+                <span class="stat-label">Pending Fines</span>
+                <h3 class="stat-value">{{ currency }}{{ "%.2f"|format(stats.total_pending_fines or 0.0) }}</h3>
+                <span class="stat-sub text-warning">Accruing on overdue loans</span>
+                <span class="stat-chip stat-chip-warning"><i data-lucide="clock" class="icon-inline"></i> Accruing</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts & Alerts Section -->
+    <div class="dashboard-grid-2col">
+        <!-- Category Distribution Chart Card -->
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h3 class="card-title">Category-wise Book Distribution</h3>
+                    <p class="card-subtitle">Breakdown of cataloged book titles by genre</p>
+                </div>
+                <i data-lucide="pie-chart" class="text-muted"></i>
+            </div>
+            <div class="card-body">
+                <div class="chart-container" style="position: relative; height: 260px;">
+                    <canvas id="categoryChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Overdue Alerts Card -->
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h3 class="card-title text-danger">
+                        <i data-lucide="alert-triangle" class="icon-inline"></i>
+                        Overdue Loans Requiring Action
+                    </h3>
+                    <p class="card-subtitle">Active loans exceeding due dates</p>
+                </div>
+                <a href="{{ url_for('loans.index', tab='overdue') }}" class="btn btn-sm btn-outline">View All</a>
+            </div>
+            <div class="card-body p-0">
+                {% if overdue_alerts and overdue_alerts|length > 0 %}
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Book Title</th>
+                                <th>Borrower</th>
+                                <th>Due Date</th>
+                                <th>Overdue Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for alert in overdue_alerts %}
+                            <tr>
+                                <td class="font-medium">
+                                    <div class="font-semibold">{{ alert.book_title }}</div>
+                                    <small class="text-muted">Loan #{{ alert.Loan_ID }}</small>
+                                </td>
+                                <td>
+                                    <div class="member-cell">
+                                        <div class="member-avatar-initials">
+                                            {{ alert.member_name[:2]|upper }}
+                                        </div>
+                                        <div class="member-info">
+                                            <span class="member-name">{{ alert.member_name }}</span>
+                                            <span class="member-sub">{{ alert.member_phone or 'No phone' }}</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td><span class="badge badge-secondary">{{ alert.Due_Date }}</span></td>
+                                <td>
+                                    <span class="badge badge-danger">{{ alert.days_overdue }} days late</span>
+                                    <div class="text-danger small font-semibold mt-1">+{{ currency }}{{ alert.calculated_fine }} fine</div>
+                                </td>
+                                <td>
+                                    <form method="POST" action="{{ url_for('loans.return_book', loan_id=alert.Loan_ID) }}" style="display:inline;">
+                                        <button type="button" class="btn btn-xs btn-primary" onclick="showConfirmDialog({
+                                            title: 'Process Overdue Return',
+                                            message: 'Confirm book return for this overdue loan? Any outstanding penalty will be recorded.',
+                                            details: '<strong>Book:</strong> {{ alert.book_title|e }}<br><strong>Borrower:</strong> {{ alert.member_name|e }}<br><strong>Calculated Fine:</strong> {{ currency }}{{ alert.calculated_fine }}',
+                                            confirmText: 'Return Book',
+                                            confirmClass: 'btn-primary',
+                                            icon: 'book-down',
+                                            iconType: 'primary',
+                                            form: this.closest('form')
+                                        })">
+                                            Return Book
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state p-4">
+                    <i data-lucide="check-circle-2" class="empty-icon text-success"></i>
+                    <p>No overdue books! All active loans are currently within their due dates.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Tables: Recent Issues, Recent Returns, Most Borrowed -->
+    <div class="dashboard-grid-3col mt-4">
+        <!-- Recently Issued -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Recently Issued</h3>
+                <i data-lucide="upload" class="text-muted"></i>
+            </div>
+            <div class="card-body p-0">
+                {% if recent_issues and recent_issues|length > 0 %}
+                <ul class="activity-list">
+                    {% for item in recent_issues %}
+                    <li class="activity-item">
+                        <div class="member-avatar-initials" style="background:#eff6ff; color:#2563eb;">
+                            {{ item.member_name[:2]|upper }}
+                        </div>
+                        <div class="activity-details">
+                            <div class="activity-title">{{ item.book_title }}</div>
+                            <div class="activity-meta">Issued to <strong>{{ item.member_name }}</strong> on {{ item.Issue_Date }}</div>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="empty-state p-3"><p class="text-muted">No recent issues.</p></div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Recently Returned -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Recently Returned</h3>
+                <i data-lucide="download" class="text-muted"></i>
+            </div>
+            <div class="card-body p-0">
+                {% if recent_returns and recent_returns|length > 0 %}
+                <ul class="activity-list">
+                    {% for item in recent_returns %}
+                    <li class="activity-item">
+                        <div class="member-avatar-initials" style="background:#ecfdf5; color:#059669;">
+                            {{ item.member_name[:2]|upper }}
+                        </div>
+                        <div class="activity-details">
+                            <div class="activity-title">{{ item.book_title }}</div>
+                            <div class="activity-meta">Returned by <strong>{{ item.member_name }}</strong> on {{ item.Return_Date }}</div>
+                            {% if item.Fine_Amount > 0 %}
+                            <div class="activity-badge badge-warning">Fine Paid: {{ currency }}{{ item.Fine_Amount }}</div>
+                            {% endif %}
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="empty-state p-3"><p class="text-muted">No recent returns.</p></div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Most Borrowed Titles -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Most Borrowed Titles</h3>
+                <i data-lucide="trending-up" class="text-muted"></i>
+            </div>
+            <div class="card-body p-0">
+                {% if most_borrowed and most_borrowed|length > 0 %}
+                <ul class="ranking-list">
+                    {% for item in most_borrowed %}
+                    <li class="ranking-item">
+                        <span class="ranking-index">#{{ loop.index }}</span>
+                        <div class="ranking-info">
+                            <span class="ranking-title">{{ item.book_title }}</span>
+                            <span class="ranking-category">{{ item.category_name }}</span>
+                        </div>
+                        <span class="badge badge-primary">{{ item.borrow_count }} loans</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="empty-state p-3"><p class="text-muted">No circulation records yet.</p></div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Initialize Chart.js Category Distribution Chart
+    const catData = {{ category_distribution|tojson }};
+    if (catData && catData.length > 0) {
+        const labels = catData.map(c => c.Category_Name);
+        const counts = catData.map(c => c.book_count);
+        const ctx = document.getElementById('categoryChart').getContext('2d');
+        
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: counts,
+                    backgroundColor: [
+                        '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd',
+                        '#059669', '#10b981', '#34d399', '#6ee7b7'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            boxWidth: 12,
+                            font: { family: 'Inter', size: 12 }
+                        }
+                    }
+                },
+                cutout: '65%'
+            }
+        });
+    }
+</script>
+{% endblock %}

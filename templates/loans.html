@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+
+{% block title %}Issue & Return Book Loans{% endblock %}
+{% block page_title %}Circulation Management: Issue & Return{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <!-- Subnavigation Tabs -->
+    <div class="tabs-nav">
+        <a href="{{ url_for('loans.index', tab='active') }}" class="tab-item {% if status_tab == 'active' %}active{% endif %}">
+            <i data-lucide="book-open"></i>
+            <span>Active Loans</span>
+        </a>
+        <a href="{{ url_for('loans.index', tab='issue') }}" class="tab-item {% if status_tab == 'issue' %}active{% endif %}">
+            <i data-lucide="plus-circle"></i>
+            <span>Issue New Book</span>
+        </a>
+        <a href="{{ url_for('loans.index', tab='overdue') }}" class="tab-item {% if status_tab == 'overdue' %}active{% endif %}">
+            <i data-lucide="clock-alert"></i>
+            <span>Overdue Loans</span>
+        </a>
+        <a href="{{ url_for('loans.index', tab='returned') }}" class="tab-item {% if status_tab == 'returned' %}active{% endif %}">
+            <i data-lucide="check-check"></i>
+            <span>Loan History</span>
+        </a>
+    </div>
+
+    {% if status_tab == 'issue' %}
+    <!-- ISSUE BOOK FORM -->
+    <div class="card mt-3">
+        <div class="card-header">
+            <div>
+                <h3 class="card-title">Issue Book to Member</h3>
+                <p class="card-subtitle">Executes an atomic transaction ensuring real-time stock integrity</p>
+            </div>
+            <span class="badge badge-info">ACID Transaction Guaranteed</span>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('loans.issue_book') }}" class="max-w-2xl">
+                <div class="form-group">
+                    <label>Select Active Member *</label>
+                    <select name="member_id" required class="form-control" id="issue_member_select">
+                        <option value="">-- Choose Member --</option>
+                        {% for m in active_members %}
+                        <option value="{{ m.Member_ID }}">
+                            {{ m.Name }} ({{ m.Email }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <small class="text-muted">Only members with 'Active' status can be issued books.</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Select Available Book *</label>
+                    <select name="book_id" required class="form-control" id="issue_book_select">
+                        <option value="">-- Choose Book in Catalog --</option>
+                        {% for b in available_books %}
+                        <option value="{{ b.Book_ID }}" 
+                            data-title="{{ b.Title }}" 
+                            data-isbn="{{ b.ISBN }}" 
+                            data-category="{{ b.Category_Name or 'General' }}" 
+                            data-available="{{ b.Available_Copies }}" 
+                            data-total="{{ b.Total_Copies }}" 
+                            data-price="{{ '%.2f'|format(b.Price or 0.0) }}">
+                            {{ b.Title }} (ISBN: {{ b.ISBN }}) &mdash; [{{ b.Available_Copies }} of {{ b.Total_Copies }} copies available]
+                        </option>
+                        {% endfor %}
+                    </select>
+
+                    <!-- Dynamic Live Book Catalog Preview -->
+                    <div id="selectedBookPreview" class="book-preview-card" style="display:none;">
+                        <div class="book-preview-header">
+                            <div class="book-preview-thumb">
+                                <i data-lucide="book" style="width:24px; height:24px;"></i>
+                            </div>
+                            <div>
+                                <div class="book-preview-title" id="prev_title">Book Title</div>
+                                <div class="book-preview-meta">
+                                    ISBN: <code id="prev_isbn">0000000000</code> &bull; <span id="prev_category">Category</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="book-preview-grid">
+                            <div class="book-preview-stat">
+                                <span class="book-preview-stat-label">Availability</span>
+                                <span class="book-preview-stat-val" id="prev_stock">0 copies</span>
+                                <div class="stock-bar" style="margin-top: 4px;">
+                                    <div id="prev_stock_fill" class="stock-bar-fill fill-success" style="width: 100%;"></div>
+                                </div>
+                            </div>
+                            <div class="book-preview-stat">
+                                <span class="book-preview-stat-label">Book Price</span>
+                                <span class="book-preview-stat-val" id="prev_price">₹0.00</span>
+                            </div>
+                            <div class="book-preview-stat">
+                                <span class="book-preview-stat-label">Circulation Term</span>
+                                <span class="book-preview-stat-val text-primary">14 Days Standard</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label>Issue Date *</label>
+                        <input type="date" name="issue_date" value="{{ default_issue_date }}" required class="form-control" id="issue_date_input">
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label>Due Date *</label>
+                        <input type="date" name="due_date" value="{{ default_due_date }}" required class="form-control" id="due_date_input">
+                    </div>
+                </div>
+
+                <div class="card bg-slate-50 p-3 mb-4 border-slate-200">
+                    <div class="text-sm font-medium text-slate-700">
+                        <i data-lucide="info" class="icon-inline text-primary"></i>
+                        <strong>Circulation Policy:</strong>
+                    </div>
+                    <ul class="text-xs text-slate-600 mt-1 pl-4 list-disc">
+                        <li>Available copies for the selected title will decrease atomically by 1.</li>
+                        <li>Standard borrowing duration is 14 days.</li>
+                        <li>Fine rate of <strong>{{ currency }}{{ "%.2f"|format(fine_rate) }}/day</strong> applies automatically after due date.</li>
+                    </ul>
+                </div>
+
+                <div class="form-actions">
+                    <a href="{{ url_for('loans.index', tab='active') }}" class="btn btn-outline">Cancel</a>
+                    <button type="submit" class="btn btn-primary">
+                        <i data-lucide="check"></i> Confirm & Issue Book
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- LOANS TABLE (Active, Overdue, Returned) -->
+    <div class="actions-header mt-3">
+        <form method="GET" action="{{ url_for('loans.index') }}" class="filters-form">
+            <input type="hidden" name="tab" value="{{ status_tab }}">
+            <div class="search-box">
+                <i data-lucide="search"></i>
+                <input 
+                    type="text" 
+                    name="q" 
+                    value="{{ search_query }}" 
+                    placeholder="Search by book title, ISBN, or member..."
+                >
+            </div>
+            {% if search_query %}
+            <a href="{{ url_for('loans.index', tab=status_tab) }}" class="btn btn-outline">Clear</a>
+            {% endif %}
+        </form>
+
+        <a href="{{ url_for('loans.index', tab='issue') }}" class="btn btn-primary">
+            <i data-lucide="plus"></i>
+            <span>Issue New Book</span>
+        </a>
+    </div>
+
+    <div class="card mt-3">
+        <div class="card-body p-0">
+            {% if loans and loans|length > 0 %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Book Title</th>
+                            <th>Borrowing Member</th>
+                            <th>Issue Date</th>
+                            <th>Due Date</th>
+                            <th>Return Status</th>
+                            <th>Overdue Fine</th>
+                            <th class="text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for l in loans %}
+                        <tr>
+                            <td>
+                                <div class="font-semibold text-primary-dark">{{ l.Book_Title }}</div>
+                                <code class="small text-muted">{{ l.ISBN }}</code>
+                            </td>
+                            <td>
+                                <div class="member-cell">
+                                    <div class="member-avatar-initials">
+                                        {{ l.Member_Name[:2]|upper }}
+                                    </div>
+                                    <div class="member-info">
+                                        <span class="member-name">{{ l.Member_Name }}</span>
+                                        <span class="member-sub">{{ l.Member_Email }}</span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>{{ l.Issue_Date }}</td>
+                            <td>{{ l.Due_Date }}</td>
+                            <td>
+                                {% if l.Return_Date %}
+                                <span class="badge badge-success">Returned: {{ l.Return_Date }}</span>
+                                {% else %}
+                                    {% if l.Overdue_Days > 0 %}
+                                    <span class="badge badge-danger">{{ l.Overdue_Days }} Day(s) Overdue</span>
+                                    {% else %}
+                                    <span class="badge badge-info">Active Loan</span>
+                                    {% endif %}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if l.Return_Date %}
+                                    {% if l.Fine_Amount > 0 %}
+                                    <span class="text-danger font-semibold">{{ currency }}{{ "%.2f"|format(l.Fine_Amount) }} Paid</span>
+                                    {% else %}
+                                    <span class="text-muted">{{ currency }}0.00</span>
+                                    {% endif %}
+                                {% else %}
+                                    {% if l.Pending_Fine > 0 %}
+                                    <span class="text-danger font-bold">+{{ currency }}{{ "%.2f"|format(l.Pending_Fine) }}</span>
+                                    <small class="text-muted d-block">({{ currency }}{{ "%.2f"|format(fine_rate) }}/day)</small>
+                                    {% else %}
+                                    <span class="text-muted">{{ currency }}0.00</span>
+                                    {% endif %}
+                                {% endif %}
+                            </td>
+                            <td class="text-right table-actions">
+                                {% if not l.Return_Date %}
+                                <button 
+                                    class="btn btn-sm btn-primary"
+                                    onclick='openReturnModal({{ l|tojson }})'
+                                >
+                                    <i data-lucide="undo-2"></i> Return Book
+                                </button>
+                                {% else %}
+                                <span class="text-muted small">Closed</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state p-5">
+                <i data-lucide="check-circle" class="empty-icon text-muted"></i>
+                <h3>No Loans Found</h3>
+                <p class="text-muted">No circulation records match this tab.</p>
+                <a href="{{ url_for('loans.index', tab='issue') }}" class="btn btn-primary mt-3">Issue a Book</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block modals %}
+<!-- Process Return Book Modal -->
+<div id="returnBookModal" class="modal-backdrop" style="display:none;">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h3>Process Book Return</h3>
+            <button class="modal-close" onclick="closeModal('returnBookModal')">&times;</button>
+        </div>
+        <form method="POST" id="returnBookForm" action="">
+            <div class="modal-body">
+                <div class="card bg-slate-50 p-3 mb-3 border-slate-200">
+                    <div><strong>Book:</strong> <span id="ret_book_title"></span></div>
+                    <div><strong>Member:</strong> <span id="ret_member_name"></span></div>
+                    <div><strong>Due Date:</strong> <span id="ret_due_date"></span></div>
+                </div>
+
+                <div class="form-group">
+                    <label>Actual Return Date *</label>
+                    <input 
+                        type="date" 
+                        name="return_date" 
+                        id="ret_return_date" 
+                        value="{{ today }}" 
+                        required 
+                        class="form-control"
+                        onchange="recalculateFine()"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label>Fine Amount to Record ({{ currency }})</label>
+                    <input 
+                        type="number" 
+                        step="0.01" 
+                        min="0" 
+                        name="fine_amount" 
+                        id="ret_fine_amount" 
+                        class="form-control" 
+                        value="0.00"
+                    >
+                    <small class="text-muted" id="ret_fine_note">
+                        Fine rate is {{ currency }}{{ "%.2f"|format(fine_rate) }} per overdue day. You can waive or adjust if necessary.
+                    </small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeModal('returnBookModal')">Cancel</button>
+                <button type="submit" class="btn btn-success">
+                    <i data-lucide="check-check"></i> Complete Return & Restock
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentModalLoan = null;
+    const dailyFineRate = {{ fine_rate }};
+
+    function openReturnModal(loan) {
+        currentModalLoan = loan;
+        document.getElementById('returnBookForm').action = '/loans/return/' + loan.Loan_ID;
+        document.getElementById('ret_book_title').innerText = loan.Book_Title;
+        document.getElementById('ret_member_name').innerText = loan.Member_Name;
+        document.getElementById('ret_due_date').innerText = loan.Due_Date;
+        document.getElementById('ret_return_date').value = '{{ today }}';
+        
+        recalculateFine();
+        openModal('returnBookModal');
+    }
+
+    function recalculateFine() {
+        if (!currentModalLoan) return;
+        const retDateVal = document.getElementById('ret_return_date').value;
+        if (!retDateVal) return;
+
+        const retDate = new Date(retDateVal);
+        const dueDate = new Date(currentModalLoan.Due_Date);
+        const diffTime = retDate - dueDate;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays > 0) {
+            const calculated = (diffDays * dailyFineRate).toFixed(2);
+            document.getElementById('ret_fine_amount').value = calculated;
+            document.getElementById('ret_fine_note').innerText = 
+                `Book is ${diffDays} day(s) overdue. Calculated fine: ₹${calculated}.`;
+        } else {
+            document.getElementById('ret_fine_amount').value = '0.00';
+            document.getElementById('ret_fine_note').innerText = 'Returned on or before due date. No fine applicable.';
+        }
+    }
+</script>
+{% endblock %}

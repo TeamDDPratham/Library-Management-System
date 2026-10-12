@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}Borrowing History - {{ member.Name }}{% endblock %}
+{% block page_title %}Member Borrowing History{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="mb-3">
+        <a href="{{ url_for('members.index') }}" class="btn btn-sm btn-outline">
+            <i data-lucide="arrow-left"></i> Back to Members Directory
+        </a>
+    </div>
+
+    <!-- Member Profile Header -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="member-profile-banner">
+                <div class="member-avatar-initials" style="width: 58px; height: 58px; font-size: 1.3rem; border-radius: 12px; box-shadow: var(--shadow-sm);">
+                    {{ member.Name[:2]|upper }}
+                </div>
+                <div class="member-profile-info">
+                    <h2>{{ member.Name }}</h2>
+                    <div class="meta-row">
+                        <span><i data-lucide="mail" class="icon-inline"></i> {{ member.Email }}</span>
+                        {% if member.Phone %}
+                        <span><i data-lucide="phone" class="icon-inline"></i> {{ member.Phone }}</span>
+                        {% endif %}
+                        <span><i data-lucide="calendar" class="icon-inline"></i> Joined: {{ member.Join_Date }}</span>
+                        {% if member.Status == 'Active' %}
+                        <span class="badge badge-success">Active Member</span>
+                        {% else %}
+                        <span class="badge badge-danger">Inactive Patron</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loan History Table -->
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <h3 class="card-title">All Borrowing Transactions</h3>
+                <p class="card-subtitle">Complete chronological loan history for this patron</p>
+            </div>
+            <span class="badge badge-primary">{{ loans|length }} Total Loan(s)</span>
+        </div>
+        <div class="card-body p-0">
+            {% if loans and loans|length > 0 %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Book Title & ISBN</th>
+                            <th>Issue Date</th>
+                            <th>Due Date</th>
+                            <th>Return Date / Status</th>
+                            <th>Fine Incurred / Pending</th>
+                            <th class="text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for l in loans %}
+                        <tr>
+                            <td>
+                                <div class="font-semibold text-primary-dark">{{ l.Book_Title }}</div>
+                                <code class="small text-muted">{{ l.ISBN }}</code>
+                            </td>
+                            <td>{{ l.Issue_Date }}</td>
+                            <td>{{ l.Due_Date }}</td>
+                            <td>
+                                {% if l.Return_Date %}
+                                <span class="badge badge-success">Returned on {{ l.Return_Date }}</span>
+                                {% else %}
+                                    {% if l.Days_Overdue > 0 %}
+                                    <span class="badge badge-danger">{{ l.Days_Overdue }} Day(s) Overdue</span>
+                                    {% else %}
+                                    <span class="badge badge-info">Active (On Schedule)</span>
+                                    {% endif %}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if l.Return_Date %}
+                                    {% if l.Fine_Amount > 0 %}
+                                    <span class="text-danger font-medium">{{ currency }}{{ "%.2f"|format(l.Fine_Amount) }} Paid</span>
+                                    {% else %}
+                                    <span class="text-muted">{{ currency }}0.00</span>
+                                    {% endif %}
+                                {% else %}
+                                    {% if l.Calculated_Pending_Fine > 0 %}
+                                    <span class="text-warning font-semibold">+{{ currency }}{{ "%.2f"|format(l.Calculated_Pending_Fine) }} Pending</span>
+                                    {% else %}
+                                    <span class="text-muted">{{ currency }}0.00</span>
+                                    {% endif %}
+                                {% endif %}
+                            </td>
+                            <td class="text-right">
+                                {% if not l.Return_Date %}
+                                <form method="POST" action="{{ url_for('loans.return_book', loan_id=l.Loan_ID) }}" style="display:inline;">
+                                    <button 
+                                        type="button" 
+                                        class="btn btn-xs btn-primary" 
+                                        onclick="showConfirmDialog({
+                                            title: 'Process Book Return',
+                                            message: 'Confirm book return for {{ l.Book_Title|e }}? Any accrued fines will be recorded and inventory updated.',
+                                            details: '<strong>Book:</strong> {{ l.Book_Title|e }}<br><strong>Due Date:</strong> {{ l.Due_Date }}<br><strong>Pending Fine:</strong> {{ currency }}{{ '%.2f'|format(l.Calculated_Pending_Fine) }}',
+                                            confirmText: 'Return Book',
+                                            confirmClass: 'btn-primary',
+                                            icon: 'book-down',
+                                            iconType: 'primary',
+                                            form: this.closest('form')
+                                        })"
+                                    >
+                                        Return Book
+                                    </button>
+                                </form>
+                                {% else %}
+                                <span class="text-muted small">Completed</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state p-5">
+                <i data-lucide="book-check" class="empty-icon text-muted"></i>
+                <h3>No Borrowing History</h3>
+                <p class="text-muted">This member has not borrowed any books yet.</p>
+                <a href="{{ url_for('loans.index', tab='issue') }}" class="btn btn-primary mt-3">Issue First Book</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block title %}Publishers Management{% endblock %}
+{% block page_title %}Publishers Management{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="actions-header">
+        <form method="GET" action="{{ url_for('publishers.index') }}" class="filters-form">
+            <div class="search-box">
+                <i data-lucide="search"></i>
+                <input 
+                    type="text" 
+                    name="q" 
+                    value="{{ search_query }}" 
+                    placeholder="Search publisher name or address..."
+                >
+            </div>
+            {% if search_query %}
+            <a href="{{ url_for('publishers.index') }}" class="btn btn-outline">Clear</a>
+            {% endif %}
+        </form>
+
+        <button class="btn btn-primary" onclick="openModal('addPublisherModal')">
+            <i data-lucide="plus"></i>
+            <span>Add Publisher</span>
+        </button>
+    </div>
+
+    <div class="card mt-3">
+        <div class="card-body p-0">
+            {% if publishers and publishers|length > 0 %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Publisher Name</th>
+                            <th>Headquarters Address</th>
+                            <th>Published Books</th>
+                            <th>Cataloged Titles</th>
+                            <th class="text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in publishers %}
+                        <tr>
+                            <td class="font-semibold text-primary-dark">
+                                {{ p.Name }}
+                            </td>
+                            <td class="text-slate-600">
+                                {{ p.Address or 'Not recorded' }}
+                            </td>
+                            <td>
+                                <strong>{{ p.Book_Count }}</strong> title(s)
+                            </td>
+                            <td class="text-slate-600 small max-w-md">
+                                {{ p.Books_List }}
+                            </td>
+                            <td class="text-right table-actions">
+                                <button 
+                                    class="btn-icon text-primary" 
+                                    title="Edit Publisher"
+                                    onclick='openEditPublisherModal({{ p|tojson }})'
+                                >
+                                    <i data-lucide="pencil"></i>
+                                </button>
+                                <form method="POST" action="{{ url_for('publishers.delete', publisher_id=p.Publisher_ID) }}" style="display:inline;">
+                                    <button 
+                                        type="button" 
+                                        class="btn-icon text-danger" 
+                                        title="Delete Publisher"
+                                        onclick="showConfirmDialog({
+                                            title: 'Delete Publisher',
+                                            message: 'Are you sure you want to remove this publisher? If books in the catalog reference this publisher, deletion will be blocked by foreign key constraints.',
+                                            details: '<strong>Publisher:</strong> {{ p.Name|e }}<br><strong>Linked Titles:</strong> {{ p.Book_Count }}',
+                                            confirmText: 'Delete Publisher',
+                                            confirmClass: 'btn-danger',
+                                            icon: 'trash-2',
+                                            iconType: 'danger',
+                                            form: this.closest('form')
+                                        })"
+                                    >
+                                        <i data-lucide="trash-2"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state p-5">
+                <i data-lucide="building-2" class="empty-icon text-muted"></i>
+                <h3>No Publishers Found</h3>
+                <p class="text-muted">Start by adding your first publishing house.</p>
+                <button class="btn btn-primary mt-3" onclick="openModal('addPublisherModal')">Add Publisher</button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block modals %}
+<!-- Add Publisher Modal -->
+<div id="addPublisherModal" class="modal-backdrop" style="display:none;">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h3>Add New Publisher</h3>
+            <button class="modal-close" onclick="closeModal('addPublisherModal')">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('publishers.add') }}">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Publisher Company Name *</label>
+                    <input type="text" name="name" required class="form-control" placeholder="e.g. O'Reilly Media">
+                </div>
+                <div class="form-group">
+                    <label>Office Address</label>
+                    <textarea name="address" class="form-control" rows="2" placeholder="Street, City, State, ZIP"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeModal('addPublisherModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Publisher</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Publisher Modal -->
+<div id="editPublisherModal" class="modal-backdrop" style="display:none;">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h3>Edit Publisher</h3>
+            <button class="modal-close" onclick="closeModal('editPublisherModal')">&times;</button>
+        </div>
+        <form method="POST" id="editPublisherForm" action="">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Publisher Company Name *</label>
+                    <input type="text" name="name" id="edit_pub_name" required class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Office Address</label>
+                    <textarea name="address" id="edit_pub_address" class="form-control" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeModal('editPublisherModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Update Publisher</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function openEditPublisherModal(pub) {
+        document.getElementById('editPublisherForm').action = '/publishers/edit/' + pub.Publisher_ID;
+        document.getElementById('edit_pub_name').value = pub.Name;
+        document.getElementById('edit_pub_address').value = pub.Address || '';
+        openModal('editPublisherModal');
+    }
+</script>
+{% endblock %}
