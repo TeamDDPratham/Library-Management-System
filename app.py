@@ -170,6 +170,14 @@ def create_app():
             # Handles MySQL server offline / connection failure with informative screen
             return render_template('db_error.html', error_message=str(re), config=Config)
 
+    @app.route('/api/index')
+    @app.route('/api/index.py')
+    def vercel_entry_fallback():
+        """Fallback for Vercel serverless function entrypoint when path is not rewritten."""
+        if 'librarian_id' not in session:
+            return redirect(url_for('auth.login'))
+        return redirect(url_for('dashboard'))
+
     @app.errorhandler(RuntimeError)
     def handle_database_runtime_error(err):
         """Catches unhandled database errors and presents a helpful setup guide."""

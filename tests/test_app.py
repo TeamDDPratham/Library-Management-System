@@ -96,3 +96,14 @@ def test_database_offline_handling(client):
     assert response.status_code in (200, 503)
     if response.status_code == 503:
         assert b'MySQL Database Unreachable' in response.data or b'Cannot connect to MySQL' in response.data
+
+def test_vercel_entry_fallback(client):
+    """Verify that /api/index and /api/index.py gracefully redirect rather than returning 404."""
+    response = client.get('/api/index', follow_redirects=False)
+    assert response.status_code == 302
+    assert '/login' in response.headers['Location']
+
+    response_py = client.get('/api/index.py', follow_redirects=False)
+    assert response_py.status_code == 302
+    assert '/login' in response_py.headers['Location']
+
